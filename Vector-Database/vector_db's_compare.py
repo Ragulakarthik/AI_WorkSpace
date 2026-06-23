@@ -16,6 +16,10 @@ Original file is located at
 # print(google.protobuf.__version__)
 
 # !pip install langchain_community pymupdf
+import os
+from dotenv import load_dotenv
+load_dotenv()
+
 from langchain_community.document_loaders import PyMuPDFLoader
 from langchain.text_splitter import RecursiveCharacterTextSplitter
 
@@ -87,7 +91,7 @@ chroma_collection.add(
 
 from pinecone import Pinecone
 
-pc = Pinecone(api_key="pcsk_3p3bSz_5MEkGJeGRtMMiq57Zt9cXtcVMaN3UvmyokxYvYurnV4SdP1dg4ZnSoQGcyRMBXL")
+pc = Pinecone(api_key=os.environ["PINECONE_API_KEY"])
 index_name = "test2"
 
 index = pc.Index(index_name)
@@ -110,17 +114,12 @@ index.upsert(vectors=pinecone_data)
 
 # !pip install -U weaviate-client
 
-WEAVIATE_URL="8nzs5auetcay3wetgzuxjw.c0.asia-southeast1.gcp.weaviate.cloud"
-WEAVIATE_API_KEY="T2t0UCtJSlJPemdjcUgyYl9BSDVXNXZIeE9UVURFOHlLNUh6ZjlPWU5OdG9zQnBLVjBQSVJsbmdLMDFjPV92MjAw"
-
 import weaviate
 from weaviate.classes.init import Auth
-import os
 import uuid
 
-# Best practice: store your credentials in environment variables
-weaviate_url = WEAVIATE_URL
-weaviate_api_key = WEAVIATE_API_KEY
+weaviate_url = os.environ["WEAVIATE_URL"]
+weaviate_api_key = os.environ["WEAVIATE_API_KEY"]
 
 client = weaviate.connect_to_weaviate_cloud(
     cluster_url=weaviate_url,

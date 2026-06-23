@@ -11,6 +11,10 @@ Load Pdf and split into chunks
 """
 
 # !pip install langchain_community pymupdf
+import os
+from dotenv import load_dotenv
+load_dotenv()
+
 from transformers import AutoTokenizer, AutoModel, AutoModelForSeq2SeqLM, pipeline
 from langchain_community.document_loaders import PyMuPDFLoader
 from langchain.text_splitter import RecursiveCharacterTextSplitter
@@ -266,11 +270,11 @@ from pgvector.psycopg import register_vector
 
 # Connect to DB and register pgvector
 conn = psycopg.connect(
-    host='localhost',
-    port='5432',
-    dbname='pgvector',
-    user='postgres',
-    password='R.Karthik@04',
+    host=os.environ.get("POSTGRES_HOST", "localhost"),
+    port=os.environ.get("POSTGRES_PORT", "5432"),
+    dbname=os.environ.get("POSTGRES_DB", "pgvector"),
+    user=os.environ.get("POSTGRES_USER", "postgres"),
+    password=os.environ["POSTGRES_PASSWORD"],
     autocommit=True
 )
 
