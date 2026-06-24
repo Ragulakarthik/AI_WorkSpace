@@ -5,6 +5,8 @@ import org.springframework.data.neo4j.core.schema.Id;
 import org.springframework.data.neo4j.core.schema.Node;
 import org.springframework.data.neo4j.core.schema.Relationship;
 
+import java.util.List;
+
 @Node
 public class Variable {
 
@@ -15,7 +17,7 @@ public class Variable {
     private String name;
 
     @Relationship(type = "CONNECTED_TO", direction = Relationship.Direction.OUTGOING)
-    private API api;
+    private List<API> apis;
 
     public Variable() {}
 
@@ -25,9 +27,9 @@ public class Variable {
 
     public Long getId() { return id; }
     public String getName() { return name; }
-    public API getApi() { return api; }
+    public List<API> getApis() { return apis; }
 
     public void setId(Long id) { this.id = id; }
     public void setName(String name) { this.name = name; }
-    public void setApi(API api) { this.api = api; }
+    public void setApis(List<API> apis) { this.apis = apis; }
 }

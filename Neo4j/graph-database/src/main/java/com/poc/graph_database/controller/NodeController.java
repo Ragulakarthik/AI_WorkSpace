@@ -33,11 +33,11 @@ public class NodeController {
         String type = body.get("type");
 
         return switch (type) {
-            case "Page" -> ResponseEntity.ok(pageRepository.save(new Page(name)));
-            case "Variable" -> ResponseEntity.ok(variableRepository.save(new Variable(name)));
-            case "API" -> ResponseEntity.ok(apiRepository.save(new API(name)));
-            case "App" -> ResponseEntity.ok(appRepository.save(new App(name)));
-            case "AppVariable" -> ResponseEntity.ok(appVariableRepository.save(new AppVariable(name)));
+            case "Page" -> ResponseEntity.ok(pageRepository.findByName(name).orElseGet(() -> pageRepository.save(new Page(name))));
+            case "Variable" -> ResponseEntity.ok(variableRepository.findByName(name).orElseGet(() -> variableRepository.save(new Variable(name))));
+            case "API" -> ResponseEntity.ok(apiRepository.findByName(name).orElseGet(() -> apiRepository.save(new API(name))));
+            case "App" -> ResponseEntity.ok(appRepository.findByName(name).orElseGet(() -> appRepository.save(new App(name))));
+            case "AppVariable" -> ResponseEntity.ok(appVariableRepository.findByName(name).orElseGet(() -> appVariableRepository.save(new AppVariable(name))));
             default -> ResponseEntity.badRequest().body("Unknown type: " + type);
         };
     }

@@ -67,7 +67,8 @@ public class RelationshipController {
             case "CONNECTED_TO" -> {
                 Variable variable = variableRepository.findByName(fromName).orElseThrow();
                 API api = apiRepository.findByName(toName).orElseThrow();
-                variable.setApi(api);
+                if (variable.getApis() == null) variable.setApis(new ArrayList<>());
+                variable.getApis().add(api);
                 variableRepository.save(variable);
             }
             default -> {
