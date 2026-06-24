@@ -188,86 +188,87 @@ LIMIT 10
 ## POC — Code Dependency Graph for AIRA
 
 ### Problem
-When an LLM makes a change to a file (API, DB, etc.), it doesn't know which other parts of the app are affected. Manually tracking dependencies is complex and error-prone.
+AIRA is an agentic AI platform that generates web and mobile apps. When the LLM changes something (a Variable, API, AppVariable), it doesn't know what else in the app is affected. Without this, the LLM makes blind changes and breaks things.
 
 ### Solution
-Store the app structure as a graph in Neo4j. When something changes → query Neo4j to instantly find everything impacted.
+Store the AIRA app structure as a graph in Neo4j. When something changes → call one API → get back everything impacted with the full path showing how it's connected.
 
-### Real Example
-In AIRA, pages have variables that are connected to APIs, DBs, etc.
+### Graph Model
 
+**Nodes:** `App`, `Page`, `Variable`, `AppVariable`, `API`
+
+**Relationships:**
 ```
-(:Page) -[:HAS_VARIABLE]-> (:Variable) -[:CONNECTED_TO]-> (:API)
-(:Page) -[:HAS_VARIABLE]-> (:Variable) -[:CONNECTED_TO]-> (:DB)
+App       -[:HAS_APP_VARIABLE]-> AppVariable
+Page      -[:BELONGS_TO]->       App
+Page      -[:HAS_VARIABLE]->     Variable
+Page      -[:USES]->             AppVariable
+Variable  -[:CONNECTED_TO]->     API
 ```
-
-When an API changes:
-1. Find all Variables connected to that API
-2. Find all Pages those Variables belong to
-3. Those Pages are impacted → LLM knows to review them too
-
-When a Variable name changes:
-1. Find all Pages that have that Variable (`HAS_VARIABLE`)
-2. If a Page is used inside another Page (`USES`), that parent Page is also impacted
-3. Return everything affected at any depth
-
-```
-(ParentPage) -[:USES]-> (Page) -[:HAS_VARIABLE]-> (Variable)
-                                                        ↑
-                                                  changed here
-→ both Page and ParentPage are impacted
-```
-
-Query:
-```cypher
-MATCH (v:Variable {name: "userVar"})<-[:HAS_VARIABLE|USES*]-(impacted)
-RETURN impacted
-```
-
-### Approach
-
-**Step 1 — Setup**
-- Run Neo4j locally via Docker
-- Create a Spring Boot project with `spring-boot-starter-data-neo4j`
-
-**Step 2 — Data Model**
-- Nodes: `App`, `Page`, `Variable`, `AppVariable`, `API`, `DB`
-- Relationships: `HAS_VARIABLE`, `HAS_APP_VARIABLE`, `CONNECTED_TO`, `BELONGS_TO`, `USES`
 
 **Two types of variables:**
-- **Page Variable** — belongs to one page only, only that page (and its parents) are impacted
-- **App Variable** — global, belongs to the App, all pages in the app are impacted when it changes
+- **Variable** — belongs to one Page only. If it changes, only that Page is impacted.
+- **AppVariable** — global, belongs to the App. If it changes, ALL Pages in that App are impacted automatically (because every Page `BELONGS_TO` the App).
 
-```
-(:App) -[:HAS_APP_VARIABLE]-> (:AppVariable)
-(:Page) -[:BELONGS_TO]-> (:App)
-(:Page) -[:HAS_VARIABLE]-> (:Variable) -[:CONNECTED_TO]-> (:API / :DB)
-(:ParentPage) -[:USES]-> (:Page)
-```
-
-When AppVariable changes → all Pages under that App are impacted.
-When Page Variable changes → only Pages that use it (directly or via USES) are impacted.
-
-**Step 3 — Build 3 APIs**
+### 3 APIs Built
 
 | API | What it does |
 |---|---|
-| `POST /nodes` | Add any node (Page, Variable, API, DB) |
-| `POST /relationships` | Connect two nodes with a relationship |
-| `GET /impacted/{name}` | Given a changed node, return everything affected |
+| `POST /nodes` | Add a node — body: `{"name": "LoginPage", "type": "Page"}` |
+| `POST /relationships` | Connect two nodes — body: `{"fromName": "LoginPage", "fromType": "Page", "toName": "MyApp", "toType": "App", "relationshipType": "BELONGS_TO"}` |
+| `GET /impacted/{name}?type=Variable` | Return all impacted nodes with full path |
 
-**Step 4 — The key Cypher query**
+### The Key Cypher Query
+
 ```cypher
-MATCH (changed {name: $name})<-[:CONNECTED_TO|HAS_VARIABLE*]-(impacted)
-RETURN impacted
+MATCH p=(impacted)-[*]->(n:Variable {name: $name})
+RETURN DISTINCT labels(impacted) AS type, impacted.name AS name,
+       [r IN relationships(p) | type(r)] AS relationships,
+       [node IN nodes(p) | node.name] AS path
 ```
-The `*` means any depth — finds everything transitively affected.
 
----
+- `[*]` — traverse any depth (no limit), so adding deeper nodes in future won't break it
+- Traverses **incoming** direction — finds everything that depends on the changed node
+- Returns the full path so the LLM knows exactly how each node is connected
 
-## Code Examples
+### Example Response
 
-> Code snippets will go here as we build the POC.
+`GET /impacted/globalTheme?type=AppVariable`
+
+```json
+[
+  {"name": "LoginPage",     "type": ["Page"], "path": "LoginPage -[USES]-> globalTheme"},
+  {"name": "DashboardPage", "type": ["Page"], "path": "DashboardPage -[USES]-> globalTheme"},
+  {"name": "MyApp",         "type": ["App"],  "path": "MyApp -[HAS_APP_VARIABLE]-> globalTheme"},
+  {"name": "LoginPage",     "type": ["Page"], "path": "LoginPage -[BELONGS_TO]-> MyApp -[HAS_APP_VARIABLE]-> globalTheme"},
+  {"name": "DashboardPage", "type": ["Page"], "path": "DashboardPage -[BELONGS_TO]-> MyApp -[HAS_APP_VARIABLE]-> globalTheme"}
+]
+```
+
+The LLM receives this and immediately knows which Pages to review without scanning the entire app.
+
+### Tech Stack
+- Spring Boot + Maven
+- Spring Data Neo4j (`@Node`, `@Relationship`, `Neo4jRepository`)
+- Neo4j 5 via Docker
+- Raw `Driver` for the impact query (mixed return types — can return Page, Variable, API all in one query)
+
+### Setup
+
+**Run Neo4j via Docker:**
+```bash
+docker run --name neo4j-aira -p 7474:7474 -p 7687:7687 -e NEO4J_AUTH=neo4j/password123 -d neo4j:5
+```
+
+**application.properties:**
+```properties
+spring.neo4j.uri=bolt://localhost:7687
+spring.neo4j.authentication.username=neo4j
+spring.neo4j.authentication.password=password123
+```
+
+### Project Location
+`/home/karthikr_700073/Projects/personal/AI_WorkSpace/Neo4j/graph-database`
 
 ---
 
